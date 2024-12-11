@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Power Control</title>
+    <style>
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr); /* 6 columns */
+            gap: 10px;
+            margin: 20px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: lightgray;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+        .cell.selected {
+            background-color: lightblue;
+        }
+        .buttons {
+            margin: 20px;
+        }
+        button {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitor Power Control</h1>
+    <div class="buttons">
+        <button id="select-all">Select All</button>
+        <button id="unselect-all">Unselect All</button>
+        <button id="apply-action">Apply Action</button>
+        <label for="action">Power Action:</label>
+        <select id="action">
+            <option value="ON">Turn On</option>
+            <option value="OFF">Turn Off</option>
+            <option value="REBOOT">Reboot</option>
+        </select>
+    </div>
+    <div class="grid" id="grid">
+        <!-- Cells will be dynamically generated -->
+    </div>
+
+    <script>
+        const grid = document.getElementById('grid');
+
+        // Dictionary of cell values passed from the backend
+        const cellIPs = {{ cell_ips|tojson }};
+
+        // Generate cells dynamically for the 3x6 grid
+        for (const [key, value] of Object.entries(cellIPs)) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.key = key;       // Store the cell key (e.g., A1)
+            cell.dataset.value = value;  // Store the IP address
+            cell.textContent = `${key}\n${value}`; // Display key and IP
+            grid.appendChild(cell);
+        }
+
+        // Toggle cell selection
+        grid.addEventListener('click', (event) => {
+            if (event.target.classList.contains('cell')) {
+                event.target.classList.toggle('selected');
+            }
+        });
+
+        // Select All button
+        document.getElementById('select-all').addEventListener('click', () => {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.add('selected');
+            });
+        });
+
+        // Unselect All button
+        document.getElementById('unselect-all').addEventListener('click', () => {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('selected');
+            });
+        });
+
+        // Apply Action button
+        document.getElementById('apply-action').addEventListener('click', () => {
+            const selectedCells = Array.from(document.querySelectorAll('.cell.selected'))
+                .map(cell => cell.dataset.key); // Collect selected cell keys
+            const action = document.getElementById('action').value; // Get selected power action
+
+            if (selectedCells.length === 0) {
+                alert("Please select at least one monitor.");
+                return;
+            }
+
+            fetch('/apply-action', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ selectedCells, action }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message + "\nResults:\n" + data.results.join('\n'));
+            })
+            .catch(err => {
+                console.error("Error:", err);
+                alert("An error occurred while applying the action.");
+            });
+        });
+    </script>
+</body>
+</html>
